@@ -109,18 +109,20 @@ function App() {
 
   return (
     <div className="app-container">
-      <SelectionPanel
-        runs={runs}
-        selectedRun={selectedRun}
-        onRunChange={handleRunChange}
-        isLoading={loadingRuns}
-      />
-      <EventList
-        events={events}
-        selectedRun={selectedRun}
-        onEventSelect={handleEventSelect}
-        isLoading={loadingEvents}
-      />
+      <div className="sidebar">
+        <SelectionPanel
+          runs={runs}
+          selectedRun={selectedRun}
+          onRunChange={handleRunChange}
+          isLoading={loadingRuns}
+        />
+        <EventList
+          events={events}
+          selectedRun={selectedRun}
+          onEventSelect={handleEventSelect}
+          isLoading={loadingEvents}
+        />
+      </div>
       <DetailPanel
         eventDetails={eventDetails}
         isLoading={loadingDetails}

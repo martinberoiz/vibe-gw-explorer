@@ -1,25 +1,36 @@
 /* Main App Layout */
 .app-container {
   display: grid;
-  grid-template-columns: 280px 1fr 400px;
+  grid-template-columns: 320px 1fr;
   gap: 0;
   min-height: 100vh;
   background-color: var(--color-bg);
 }
 
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  overflow-y: auto;
+}
+
 @media (max-width: 1024px) {
   .app-container {
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr auto;
+    grid-template-rows: auto 1fr;
+  }
+  
+  .sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
   }
 }
 
 /* Selection Panel */
 .selection-panel {
-  background-color: var(--color-surface);
-  border-right: 1px solid var(--color-border);
   padding: var(--spacing-xl);
-  overflow-y: auto;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .selection-panel h2 {
@@ -63,15 +74,21 @@
 /* Event List */
 .event-list {
   padding: var(--spacing-xl);
+  flex: 1;
   overflow-y: auto;
-  background-color: var(--color-bg);
 }
 
 .event-list h2 {
   font-size: 1rem;
   font-weight: 600;
-  margin-bottom: var(--spacing-lg);
+  margin-bottom: var(--spacing-sm);
   color: var(--color-text);
+}
+
+.event-list-help {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-md);
 }
 
 .event-list-placeholder {
@@ -84,117 +101,43 @@
   font-size: 0.875rem;
 }
 
-.event-list-content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-}
-
-/* Event Item */
-.event-item {
+.event-list-select {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   background-color: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-family: inherit;
+  cursor: pointer;
   transition: var(--transition);
-  overflow: hidden;
+  overflow-y: auto;
 }
 
-.event-item:hover {
+.event-list-select:hover:not(:disabled) {
   border-color: var(--color-primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.event-item-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--spacing-md);
-  cursor: pointer;
+.event-list-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.event-list-select option {
+  padding: var(--spacing-sm);
   background-color: var(--color-bg);
-  transition: var(--transition);
+  color: var(--color-text);
 }
 
-.event-item-header:hover {
+.event-list-select option:hover {
   background-color: var(--color-accent);
-}
-
-.event-item-name {
-  font-weight: 500;
-  font-size: 0.875rem;
-  color: var(--color-text);
-}
-
-.event-item-toggle {
-  font-size: 1.25rem;
-  font-weight: 300;
-  color: var(--color-text-secondary);
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.event-item-content {
-  padding: var(--spacing-md);
-  border-top: 1px solid var(--color-border);
-  background-color: var(--color-surface);
-  animation: slideDown 0.2s ease;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    max-height: 0;
-  }
-  to {
-    opacity: 1;
-    max-height: 500px;
-  }
-}
-
-.event-item-info {
-  margin-bottom: var(--spacing-md);
-}
-
-.event-item-info p {
-  font-size: 0.875rem;
-  margin-bottom: var(--spacing-xs);
-  color: var(--color-text);
-}
-
-.event-item-info strong {
-  color: var(--color-text-secondary);
-  font-weight: 500;
-  margin-right: var(--spacing-sm);
-}
-
-.view-details-btn {
-  width: 100%;
-  padding: var(--spacing-sm) var(--spacing-md);
-  background-color: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: var(--radius);
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.view-details-btn:hover {
-  background-color: var(--color-primary-hover);
-}
-
-.view-details-btn:active {
-  transform: scale(0.98);
 }
 
 /* Detail Panel */
 .detail-panel {
-  background-color: var(--color-surface);
-  border-left: 1px solid var(--color-border);
+  background-color: var(--color-bg);
   padding: var(--spacing-xl);
   overflow-y: auto;
 }
@@ -297,17 +240,11 @@
 
 /* Responsive Design */
 @media (max-width: 1024px) {
-  .app-container {
-    grid-template-columns: 1fr;
-  }
-
   .selection-panel {
-    border-right: none;
     border-bottom: 1px solid var(--color-border);
   }
 
   .detail-panel {
-    border-left: none;
     border-top: 1px solid var(--color-border);
   }
 

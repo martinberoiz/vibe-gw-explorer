@@ -51,7 +51,11 @@ function DetailPanel({ eventDetails, isLoading }) {
         <h3>Versions</h3>
         <ul className="versions-list">
           {versions.map((version, index) => (
-            <li key={index}>{version}</li>
+            <li key={index}>
+              {typeof version === 'object' && version !== null
+                ? (version.version || JSON.stringify(version, null, 2))
+                : String(version)}
+            </li>
           ))}
         </ul>
       </div>

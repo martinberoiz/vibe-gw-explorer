@@ -1,5 +1,3 @@
-import EventItem from './EventItem';
-
 function EventList({ events, selectedRun, onEventSelect, isLoading }) {
   if (!selectedRun) {
     return (
@@ -31,18 +29,46 @@ function EventList({ events, selectedRun, onEventSelect, isLoading }) {
     );
   }
 
+  const handleChange = (e) => {
+    const value = e.target.value;
+    if (value === "" || value === null || value === undefined) {
+      onEventSelect(null);
+      return;
+    }
+    
+    const selectedIndex = parseInt(value, 10);
+    if (!isNaN(selectedIndex) && selectedIndex >= 0 && selectedIndex < events.length) {
+      const selectedEvent = events[selectedIndex];
+      if (selectedEvent) {
+        onEventSelect(selectedEvent);
+      } else {
+        console.error('Selected event not found at index:', selectedIndex);
+        onEventSelect(null);
+      }
+    } else {
+      console.error('Invalid selection index:', selectedIndex);
+      onEventSelect(null);
+    }
+  };
+
   return (
     <div className="event-list">
       <h2>Events for {selectedRun}</h2>
-      <div className="event-list-content">
+      <p className="event-list-help">Select an event...</p>
+      <select
+        className="event-list-select"
+        size="10"
+        onChange={handleChange}
+      >
         {events.map((event, index) => (
-          <EventItem
+          <option
             key={event.graceid || event.name || index}
-            event={event}
-            onSelect={onEventSelect}
-          />
+            value={index}
+          >
+            {event.graceid || event.name || 'Unknown Event'}
+          </option>
         ))}
-      </div>
+      </select>
     </div>
   );
 }
