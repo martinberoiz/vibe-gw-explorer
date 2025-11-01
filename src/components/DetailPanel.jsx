@@ -25,6 +25,33 @@ function DetailPanel({ eventDetails, isLoading }) {
     return String(value);
   };
 
+  const formatMetadataValue = (key, value) => {
+    if (value === null || value === undefined) return 'N/A';
+    if (typeof value === 'object') return JSON.stringify(value, null, 2);
+    
+    const stringValue = String(value);
+    
+    // Check if this is a link field
+    if ((key === 'gcn_notice' || key === 'gcn_circular') && stringValue) {
+      return (
+        <a href={stringValue} target="_blank" rel="noopener noreferrer" className="metadata-link">
+          {stringValue}
+        </a>
+      );
+    }
+    
+    // Check if this is grace_id field
+    if (key === 'grace_id' && stringValue) {
+      return (
+        <a href={`https://gracedb.ligo.org/superevents/${stringValue}`} target="_blank" rel="noopener noreferrer" className="metadata-link">
+          {stringValue}
+        </a>
+      );
+    }
+    
+    return stringValue;
+  };
+
   const renderParameters = (params) => {
     if (!params || typeof params !== 'object') return null;
 
@@ -67,7 +94,7 @@ function DetailPanel({ eventDetails, isLoading }) {
       <h2>Event Details</h2>
       <div className="detail-panel-content">
         <div className="event-header">
-          <h3>{eventDetails.graceid || eventDetails.name || 'Unknown Event'}</h3>
+          <h3>{ eventDetails.name }</h3>
         </div>
 
         {eventDetails.versions && renderVersions(eventDetails.versions)}
@@ -83,7 +110,7 @@ function DetailPanel({ eventDetails, isLoading }) {
               .map(([key, value]) => (
                 <div key={key} className="metadata-item">
                   <dt>{key}</dt>
-                  <dd>{formatValue(value)}</dd>
+                  <dd>{formatMetadataValue(key, value)}</dd>
                 </div>
               ))}
           </dl>

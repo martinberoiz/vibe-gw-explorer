@@ -172,6 +172,17 @@
   margin-bottom: 0;
 }
 
+.graceid-link {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.graceid-link:hover {
+  text-decoration: underline;
+  color: var(--color-primary-hover);
+}
+
 /* Versions Section */
 .versions-section h3,
 .parameters-section h3,
@@ -236,6 +247,17 @@
   word-break: break-word;
   font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
   white-space: pre-wrap;
+}
+
+.metadata-link {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.metadata-link:hover {
+  text-decoration: underline;
+  color: var(--color-primary-hover);
 }
 
 /* Responsive Design */
