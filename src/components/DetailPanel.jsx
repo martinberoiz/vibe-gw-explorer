@@ -27,6 +27,24 @@ function DetailPanel({ eventDetails, isLoading }) {
 
   const formatMetadataValue = (key, value) => {
     if (value === null || value === undefined) return 'N/A';
+    
+    // Check if this is aliases field - handle both array and JSON string formats
+    if (key === 'aliases') {
+      if (Array.isArray(value)) {
+        return value.join(', ');
+      }
+      if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value);
+          if (Array.isArray(parsed)) {
+            return parsed.join(', ');
+          }
+        } catch (e) {
+          // If parsing fails, fall through to return string value
+        }
+      }
+    }
+    
     if (typeof value === 'object') return JSON.stringify(value, null, 2);
     
     const stringValue = String(value);
