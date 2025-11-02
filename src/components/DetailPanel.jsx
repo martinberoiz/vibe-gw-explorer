@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { fetchVersionDetails, fetchStrainFiles } from '../services/api';
+import { fetchVersionDetails, fetchStrainFiles, fetchTimelines, fetchSegments } from '../services/api';
+import { VegaEmbed } from 'react-vega';
 
 function DetailPanel({ eventDetails, isLoading }) {
   const [selectedVersion, setSelectedVersion] = useState(null);
@@ -8,6 +9,11 @@ function DetailPanel({ eventDetails, isLoading }) {
   const [activeTab, setActiveTab] = useState(null);
   const [strainFiles, setStrainFiles] = useState(null);
   const [loadingStrainFiles, setLoadingStrainFiles] = useState(false);
+  const [timelines, setTimelines] = useState(null);
+  const [loadingTimelines, setLoadingTimelines] = useState(false);
+  const [timelineSegments, setTimelineSegments] = useState({}); // Map of timeline index to segments
+  const [loadingSegments, setLoadingSegments] = useState({}); // Map of timeline index to loading state
+  const [expandedTimelines, setExpandedTimelines] = useState(new Set()); // Set of expanded timeline indices
 
   // Helper function to extract version number from version data
   const extractVersionNumber = (version) => {
@@ -50,6 +56,10 @@ function DetailPanel({ eventDetails, isLoading }) {
       setVersionDetails(null);
       setActiveTab(null);
       setStrainFiles(null);
+      setTimelines(null);
+      setTimelineSegments({});
+      setLoadingSegments({});
+      setExpandedTimelines(new Set());
       return;
     }
 
@@ -96,6 +106,10 @@ function DetailPanel({ eventDetails, isLoading }) {
       setVersionDetails(null);
       setActiveTab(null);
       setStrainFiles(null);
+      setTimelines(null);
+      setTimelineSegments({});
+      setLoadingSegments({});
+      setExpandedTimelines(new Set());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventDetails, isLoading]);
@@ -116,6 +130,116 @@ function DetailPanel({ eventDetails, isLoading }) {
         });
     }
   }, [activeTab, versionDetails, strainFiles, loadingStrainFiles]);
+
+  // Auto-fetch timelines when timelines tab becomes active
+  useEffect(() => {
+    if (activeTab === 'timelines' && versionDetails?.timelines_url && !timelines && !loadingTimelines) {
+      setLoadingTimelines(true);
+      fetchTimelines(versionDetails.timelines_url)
+        .then(timelineData => {
+          setTimelines(timelineData);
+          setLoadingTimelines(false);
+        })
+        .catch(error => {
+          console.error('Failed to load timelines:', error);
+          setTimelines([]);
+          setLoadingTimelines(false);
+        });
+    }
+  }, [activeTab, versionDetails, timelines, loadingTimelines]);
+
+  // Handle timeline expand/collapse
+  const handleTimelineToggle = (index) => {
+    const newExpanded = new Set(expandedTimelines);
+    const isExpanded = newExpanded.has(index);
+    
+    if (isExpanded) {
+      // Collapse
+      newExpanded.delete(index);
+    } else {
+      // Expand - fetch segments if not already loaded
+      newExpanded.add(index);
+      const timeline = timelines?.[index];
+      
+      if (timeline?.segments_url && !timelineSegments[index] && !loadingSegments[index]) {
+        setLoadingSegments(prev => ({ ...prev, [index]: true }));
+        
+        fetchSegments(timeline.segments_url)
+          .then(segments => {
+            setTimelineSegments(prev => ({ ...prev, [index]: segments }));
+            setLoadingSegments(prev => ({ ...prev, [index]: false }));
+          })
+          .catch(error => {
+            console.error(`Failed to load segments for timeline ${index}:`, error);
+            setTimelineSegments(prev => ({ ...prev, [index]: [] }));
+            setLoadingSegments(prev => ({ ...prev, [index]: false }));
+          });
+      }
+    }
+    
+    setExpandedTimelines(newExpanded);
+  };
+
+  // Helper function to create Vega-Lite spec for segments
+  const createSegmentsSpec = (segments) => {
+    if (!segments || segments.length === 0) {
+      return null;
+    }
+
+    // Find min and max for axis scaling
+    const allStarts = segments.map(d => d.start);
+    const allStops = segments.map(d => d.stop);
+    const minTime = Math.min(...allStarts);
+    const maxTime = Math.max(...allStops);
+
+    return {
+      $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+      width: 400,
+      height: 30,
+      data: { values: segments },
+      mark: {
+        type: 'rect',
+        tooltip: true
+      },
+      encoding: {
+        x: {
+          field: 'start',
+          type: 'quantitative',
+          scale: { domain: [minTime, maxTime] },
+          title: null,
+          axis: { 
+            grid: false
+          }
+        },
+        x2: {
+          field: 'stop'
+        },
+        y: {
+          value: 0,
+          type: 'quantitative',
+          scale: { domain: [0, 1] },
+          title: null,
+          axis: null
+        },
+        y2: {
+          value: 1
+        },
+        color: {
+          value: '#2563eb'
+        },
+        opacity: {
+          value: 0.7
+        }
+      },
+      config: {
+        view: { 
+          stroke: 'transparent',
+          fill: 'transparent'
+        },
+        background: 'transparent'
+      }
+    };
+  };
 
   if (!eventDetails) {
     return (
@@ -227,9 +351,13 @@ function DetailPanel({ eventDetails, isLoading }) {
     try {
       const details = await fetchVersionDetails(eventIdWithVersion);
       setVersionDetails(details);
-      // Reset active tab and strain files when version changes
+      // Reset active tab, strain files, and timelines when version changes
       setActiveTab(null);
       setStrainFiles(null);
+      setTimelines(null);
+      setTimelineSegments({});
+      setLoadingSegments({});
+      setExpandedTimelines(new Set());
       // Set default active tab to first available
       if (details.parameters_url) {
         setActiveTab('parameters');
@@ -260,6 +388,20 @@ function DetailPanel({ eventDetails, isLoading }) {
         setStrainFiles([]);
       } finally {
         setLoadingStrainFiles(false);
+      }
+    }
+    
+    // Fetch timelines when the timelines tab is clicked
+    if (tabName === 'timelines' && versionDetails?.timelines_url && !timelines) {
+      setLoadingTimelines(true);
+      try {
+        const timelineData = await fetchTimelines(versionDetails.timelines_url);
+        setTimelines(timelineData);
+      } catch (error) {
+        console.error('Failed to load timelines:', error);
+        setTimelines([]);
+      } finally {
+        setLoadingTimelines(false);
       }
     }
   };
@@ -383,20 +525,71 @@ function DetailPanel({ eventDetails, isLoading }) {
     }
 
     if (activeTab === 'timelines') {
+      if (loadingTimelines) {
+        return (
+          <div className="version-tab-content">
+            <div className="version-loading">Loading timelines...</div>
+          </div>
+        );
+      }
+
+      if (!timelines || timelines.length === 0) {
+        return (
+          <div className="version-tab-content">
+            <p className="version-tab-empty">No timelines available</p>
+          </div>
+        );
+      }
+
       return (
         <div className="version-tab-content">
-          {versionDetails.timelines_url ? (
-            <a 
-              href={versionDetails.timelines_url} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="version-link"
-            >
-              {versionDetails.timelines_url}
-            </a>
-          ) : (
-            <p className="version-tab-empty">No timelines URL available</p>
-          )}
+          <div className="timelines-list">
+            {timelines.map((timeline, index) => {
+              const segments = timelineSegments[index];
+              const isLoading = loadingSegments[index];
+              const isExpanded = expandedTimelines.has(index);
+              const segmentsSpec = segments ? createSegmentsSpec(segments) : null;
+              const hasSegments = !!timeline.segments_url;
+
+              return (
+                <div key={index} className={`timeline-item ${isExpanded ? 'expanded' : ''}`}>
+                  <div 
+                    className={`timeline-header ${hasSegments ? 'clickable' : ''}`}
+                    onClick={hasSegments ? () => handleTimelineToggle(index) : undefined}
+                  >
+                    {hasSegments && (
+                      <span className="timeline-chevron">
+                        {isExpanded ? '▼' : '▶'}
+                      </span>
+                    )}
+                    <span className="timeline-name">{timeline.name || 'Unnamed Timeline'}</span>
+                    {timeline.description && (
+                      <span 
+                        className="timeline-tooltip" 
+                        title={timeline.description}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        ℹ️
+                      </span>
+                    )}
+                  </div>
+                  {isExpanded && timeline.segments_url && (
+                    <div className="timeline-plot-container">
+                      {isLoading && (
+                        <div className="timeline-plot-loading">Loading segments...</div>
+                      )}
+                      {!isLoading && segmentsSpec && (
+                        <VegaEmbed spec={segmentsSpec} />
+                      )}
+                      {!isLoading && segments && segments.length === 0 && (
+                        <div className="timeline-plot-empty">No segments available</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       );
     }

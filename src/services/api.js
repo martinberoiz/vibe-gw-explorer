@@ -97,3 +97,43 @@ export async function fetchStrainFiles(strainFilesUrl) {
   }
 }
 
+/**
+ * Fetches timelines from a timelines URL
+ * @param {string} timelinesUrl - The URL to fetch timelines from
+ * @returns {Promise<Array>} Array of timeline objects with name and description
+ */
+export async function fetchTimelines(timelinesUrl) {
+  try {
+    const response = await fetch(timelinesUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch timelines: ${response.statusText}`);
+    }
+    const data = await response.json();
+    // Handle pagination if present
+    return Array.isArray(data) ? data : (data.results || []);
+  } catch (error) {
+    console.error('Error fetching timelines:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetches segments from a segments URL
+ * @param {string} segmentsUrl - The URL to fetch segments from
+ * @returns {Promise<Array>} Array of segment objects (typically with start and end times)
+ */
+export async function fetchSegments(segmentsUrl) {
+  try {
+    const response = await fetch(segmentsUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch segments: ${response.statusText}`);
+    }
+    const data = await response.json();
+    // Handle pagination if present
+    return Array.isArray(data) ? data : (data.results || []);
+  } catch (error) {
+    console.error('Error fetching segments:', error);
+    throw error;
+  }
+}
+
