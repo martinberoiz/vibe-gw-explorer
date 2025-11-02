@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchVersionDetails, fetchStrainFiles, fetchTimelines, fetchSegments } from '../services/api';
+import { fetchVersionDetails, fetchStrainFiles, fetchTimelines, fetchSegments, fetchParameters } from '../services/api';
 import { VegaEmbed } from 'react-vega';
 
 function DetailPanel({ eventDetails, isLoading }) {
@@ -14,6 +14,8 @@ function DetailPanel({ eventDetails, isLoading }) {
   const [timelineSegments, setTimelineSegments] = useState({}); // Map of timeline index to segments
   const [loadingSegments, setLoadingSegments] = useState({}); // Map of timeline index to loading state
   const [expandedTimelines, setExpandedTimelines] = useState(new Set()); // Set of expanded timeline indices
+  const [parameters, setParameters] = useState(null);
+  const [loadingParameters, setLoadingParameters] = useState(false);
 
   // Helper function to extract version number from version data
   const extractVersionNumber = (version) => {
@@ -60,6 +62,7 @@ function DetailPanel({ eventDetails, isLoading }) {
       setTimelineSegments({});
       setLoadingSegments({});
       setExpandedTimelines(new Set());
+      setParameters(null);
       return;
     }
 
@@ -110,9 +113,27 @@ function DetailPanel({ eventDetails, isLoading }) {
       setTimelineSegments({});
       setLoadingSegments({});
       setExpandedTimelines(new Set());
+      setParameters(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventDetails, isLoading]);
+
+  // Auto-fetch parameters when parameters tab becomes active
+  useEffect(() => {
+    if (activeTab === 'parameters' && versionDetails?.parameters_url && !parameters && !loadingParameters) {
+      setLoadingParameters(true);
+      fetchParameters(versionDetails.parameters_url)
+        .then(parameterSets => {
+          setParameters(parameterSets);
+          setLoadingParameters(false);
+        })
+        .catch(error => {
+          console.error('Failed to load parameters:', error);
+          setParameters([]);
+          setLoadingParameters(false);
+        });
+    }
+  }, [activeTab, versionDetails, parameters, loadingParameters]);
 
   // Auto-fetch strain files when strain-files tab becomes active
   useEffect(() => {
@@ -351,13 +372,14 @@ function DetailPanel({ eventDetails, isLoading }) {
     try {
       const details = await fetchVersionDetails(eventIdWithVersion);
       setVersionDetails(details);
-      // Reset active tab, strain files, and timelines when version changes
+      // Reset active tab, strain files, timelines, and parameters when version changes
       setActiveTab(null);
       setStrainFiles(null);
       setTimelines(null);
       setTimelineSegments({});
       setLoadingSegments({});
       setExpandedTimelines(new Set());
+      setParameters(null);
       // Set default active tab to first available
       if (details.parameters_url) {
         setActiveTab('parameters');
@@ -376,6 +398,20 @@ function DetailPanel({ eventDetails, isLoading }) {
 
   const handleTabClick = async (tabName) => {
     setActiveTab(tabName);
+    
+    // Fetch parameters when the parameters tab is clicked
+    if (tabName === 'parameters' && versionDetails?.parameters_url && !parameters) {
+      setLoadingParameters(true);
+      try {
+        const parameterSets = await fetchParameters(versionDetails.parameters_url);
+        setParameters(parameterSets);
+      } catch (error) {
+        console.error('Failed to load parameters:', error);
+        setParameters([]);
+      } finally {
+        setLoadingParameters(false);
+      }
+    }
     
     // Fetch strain files when the strain files tab is clicked
     if (tabName === 'strain-files' && versionDetails?.strain_files_url && !strainFiles) {
@@ -438,20 +474,66 @@ function DetailPanel({ eventDetails, isLoading }) {
     if (!versionDetails || !activeTab) return null;
 
     if (activeTab === 'parameters') {
+      if (loadingParameters) {
+        return (
+          <div className="version-tab-content">
+            <div className="version-loading">Loading parameters...</div>
+          </div>
+        );
+      }
+
+      if (!parameters || parameters.length === 0) {
+        return (
+          <div className="version-tab-content">
+            <p className="version-tab-empty">No parameters available</p>
+          </div>
+        );
+      }
+
       return (
         <div className="version-tab-content">
-          {versionDetails.parameters_url ? (
-            <a 
-              href={versionDetails.parameters_url} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="version-link"
-            >
-              {versionDetails.parameters_url}
-            </a>
-          ) : (
-            <p className="version-tab-empty">No parameters URL available</p>
-          )}
+          <div className="parameters-grid">
+            {parameters.map((parameterSet, index) => (
+              <div key={index} className="parameter-set-card">
+                <div className="parameter-set-card-header">
+                  <h4 className="parameter-set-name">{parameterSet.name || 'Unnamed Parameter Set'}</h4>
+                  {parameterSet.pipeline && (
+                    <span className="parameter-set-pipeline">{parameterSet.pipeline}</span>
+                  )}
+                </div>
+                <div className="parameter-set-card-body">
+                  {parameterSet.parameters && parameterSet.parameters.length > 0 ? (
+                    <table className="parameters-table">
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th>Best</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {parameterSet.parameters.map((param, paramIndex) => (
+                          <tr key={paramIndex}>
+                            <td className="parameter-name">{param.name || 'N/A'}</td>
+                            <td className="parameter-best">
+                              {param.best !== null && param.best !== undefined 
+                                ? typeof param.best === 'number' 
+                                  ? (Math.abs(param.best) < 0.001 || Math.abs(param.best) > 1000000 
+                                      ? param.best.toExponential(2) 
+                                      : param.best.toString())
+                                  : String(param.best)
+                                : 'N/A'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <p className="parameter-set-empty">No parameters in this set</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       );
     }

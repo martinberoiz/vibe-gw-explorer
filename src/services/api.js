@@ -137,3 +137,23 @@ export async function fetchSegments(segmentsUrl) {
   }
 }
 
+/**
+ * Fetches parameter sets from a parameters URL
+ * @param {string} parametersUrl - The URL to fetch parameter sets from
+ * @returns {Promise<Array>} Array of parameter set objects with name, pipeline, and nested parameters array
+ */
+export async function fetchParameters(parametersUrl) {
+  try {
+    const response = await fetch(parametersUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch parameters: ${response.statusText}`);
+    }
+    const data = await response.json();
+    // Handle pagination if present
+    return Array.isArray(data) ? data : (data.results || []);
+  } catch (error) {
+    console.error('Error fetching parameters:', error);
+    throw error;
+  }
+}
+
