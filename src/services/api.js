@@ -77,3 +77,23 @@ export async function fetchVersionDetails(eventIdWithVersion) {
   }
 }
 
+/**
+ * Fetches strain files from a strain files URL
+ * @param {string} strainFilesUrl - The URL to fetch strain files from
+ * @returns {Promise<Array>} Array of strain file objects with detector, gps_start, sample_rate_kHz, duration, file_format, and download_url
+ */
+export async function fetchStrainFiles(strainFilesUrl) {
+  try {
+    const response = await fetch(strainFilesUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch strain files: ${response.statusText}`);
+    }
+    const data = await response.json();
+    // Handle pagination if present
+    return Array.isArray(data) ? data : (data.results || []);
+  } catch (error) {
+    console.error('Error fetching strain files:', error);
+    throw error;
+  }
+}
+

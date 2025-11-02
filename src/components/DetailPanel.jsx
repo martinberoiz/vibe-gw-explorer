@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
-import { fetchVersionDetails } from '../services/api';
+import { fetchVersionDetails, fetchStrainFiles } from '../services/api';
 
 function DetailPanel({ eventDetails, isLoading }) {
   const [selectedVersion, setSelectedVersion] = useState(null);
   const [versionDetails, setVersionDetails] = useState(null);
   const [loadingVersion, setLoadingVersion] = useState(false);
+  const [activeTab, setActiveTab] = useState(null);
+  const [strainFiles, setStrainFiles] = useState(null);
+  const [loadingStrainFiles, setLoadingStrainFiles] = useState(false);
 
   // Helper function to extract version number from version data
   const extractVersionNumber = (version) => {
@@ -45,6 +48,8 @@ function DetailPanel({ eventDetails, isLoading }) {
     if (!eventDetails || isLoading) {
       setSelectedVersion(null);
       setVersionDetails(null);
+      setActiveTab(null);
+      setStrainFiles(null);
       return;
     }
 
@@ -68,6 +73,14 @@ function DetailPanel({ eventDetails, isLoading }) {
             // Only update if we're still on the same event
             if (eventDetails && eventDetails.name === eventName) {
               setVersionDetails(details);
+              // Set default active tab to first available
+              if (details.parameters_url) {
+                setActiveTab('parameters');
+              } else if (details.strain_files_url) {
+                setActiveTab('strain-files');
+              } else if (details.timelines_url) {
+                setActiveTab('timelines');
+              }
             }
             setLoadingVersion(false);
           })
@@ -81,9 +94,28 @@ function DetailPanel({ eventDetails, isLoading }) {
       // No versions available, reset state
       setSelectedVersion(null);
       setVersionDetails(null);
+      setActiveTab(null);
+      setStrainFiles(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventDetails, isLoading]);
+
+  // Auto-fetch strain files when strain-files tab becomes active
+  useEffect(() => {
+    if (activeTab === 'strain-files' && versionDetails?.strain_files_url && !strainFiles && !loadingStrainFiles) {
+      setLoadingStrainFiles(true);
+      fetchStrainFiles(versionDetails.strain_files_url)
+        .then(files => {
+          setStrainFiles(files);
+          setLoadingStrainFiles(false);
+        })
+        .catch(error => {
+          console.error('Failed to load strain files:', error);
+          setStrainFiles([]);
+          setLoadingStrainFiles(false);
+        });
+    }
+  }, [activeTab, versionDetails, strainFiles, loadingStrainFiles]);
 
   if (!eventDetails) {
     return (
@@ -195,11 +227,40 @@ function DetailPanel({ eventDetails, isLoading }) {
     try {
       const details = await fetchVersionDetails(eventIdWithVersion);
       setVersionDetails(details);
+      // Reset active tab and strain files when version changes
+      setActiveTab(null);
+      setStrainFiles(null);
+      // Set default active tab to first available
+      if (details.parameters_url) {
+        setActiveTab('parameters');
+      } else if (details.strain_files_url) {
+        setActiveTab('strain-files');
+      } else if (details.timelines_url) {
+        setActiveTab('timelines');
+      }
     } catch (error) {
       console.error('Failed to load version details:', error);
       setVersionDetails(null);
     } finally {
       setLoadingVersion(false);
+    }
+  };
+
+  const handleTabClick = async (tabName) => {
+    setActiveTab(tabName);
+    
+    // Fetch strain files when the strain files tab is clicked
+    if (tabName === 'strain-files' && versionDetails?.strain_files_url && !strainFiles) {
+      setLoadingStrainFiles(true);
+      try {
+        const files = await fetchStrainFiles(versionDetails.strain_files_url);
+        setStrainFiles(files);
+      } catch (error) {
+        console.error('Failed to load strain files:', error);
+        setStrainFiles([]);
+      } finally {
+        setLoadingStrainFiles(false);
+      }
     }
   };
 
@@ -231,59 +292,149 @@ function DetailPanel({ eventDetails, isLoading }) {
     );
   };
 
+  const renderTabContent = () => {
+    if (!versionDetails || !activeTab) return null;
+
+    if (activeTab === 'parameters') {
+      return (
+        <div className="version-tab-content">
+          {versionDetails.parameters_url ? (
+            <a 
+              href={versionDetails.parameters_url} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="version-link"
+            >
+              {versionDetails.parameters_url}
+            </a>
+          ) : (
+            <p className="version-tab-empty">No parameters URL available</p>
+          )}
+        </div>
+      );
+    }
+
+    if (activeTab === 'strain-files') {
+      if (loadingStrainFiles) {
+        return (
+          <div className="version-tab-content">
+            <div className="version-loading">Loading strain files...</div>
+          </div>
+        );
+      }
+
+      if (!strainFiles || strainFiles.length === 0) {
+        return (
+          <div className="version-tab-content">
+            <p className="version-tab-empty">No strain files available</p>
+          </div>
+        );
+      }
+
+      return (
+        <div className="version-tab-content">
+          <div className="strain-files-grid">
+            {strainFiles.map((file, index) => (
+              <div key={index} className="strain-file-card">
+                <h4 className="strain-file-card-title">{file.detector || 'Unknown Detector'}</h4>
+                <div className="strain-file-card-body">
+                  {file.gps_start && (
+                    <div className="strain-file-field">
+                      <span className="strain-file-label">GPS Start:</span>
+                      <span className="strain-file-value">{file.gps_start}</span>
+                    </div>
+                  )}
+                  {file.sample_rate_kHz !== undefined && (
+                    <div className="strain-file-field">
+                      <span className="strain-file-label">Sample Rate:</span>
+                      <span className="strain-file-value">{file.sample_rate_kHz} kHz</span>
+                    </div>
+                  )}
+                  {file.duration !== undefined && (
+                    <div className="strain-file-field">
+                      <span className="strain-file-label">Duration:</span>
+                      <span className="strain-file-value">{file.duration} s</span>
+                    </div>
+                  )}
+                  {file.file_format && (
+                    <div className="strain-file-field">
+                      <span className="strain-file-label">Format:</span>
+                      <span className="strain-file-value">{file.file_format}</span>
+                    </div>
+                  )}
+                  {file.download_url && (
+                    <div className="strain-file-field">
+                      <a 
+                        href={file.download_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="strain-file-download"
+                      >
+                        Download
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (activeTab === 'timelines') {
+      return (
+        <div className="version-tab-content">
+          {versionDetails.timelines_url ? (
+            <a 
+              href={versionDetails.timelines_url} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="version-link"
+            >
+              {versionDetails.timelines_url}
+            </a>
+          ) : (
+            <p className="version-tab-empty">No timelines URL available</p>
+          )}
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   const renderVersionDetails = () => {
     if (!versionDetails) return null;
+
+    const availableTabs = [];
+    if (versionDetails.parameters_url) availableTabs.push('parameters');
+    if (versionDetails.strain_files_url) availableTabs.push('strain-files');
+    if (versionDetails.timelines_url) availableTabs.push('timelines');
+
+    if (availableTabs.length === 0) return null;
 
     return (
       <div className="version-details-section">
         <h3>Version {selectedVersion} Details</h3>
-        <dl className="version-details-list">
-          {versionDetails.parameters_url && (
-            <div className="version-detail-item">
-              <dt>Parameters</dt>
-              <dd>
-                <a 
-                  href={versionDetails.parameters_url} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="version-link"
-                >
-                  {versionDetails.parameters_url}
-                </a>
-              </dd>
-            </div>
-          )}
-          {versionDetails.strain_files_url && (
-            <div className="version-detail-item">
-              <dt>Strain Files</dt>
-              <dd>
-                <a 
-                  href={versionDetails.strain_files_url} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="version-link"
-                >
-                  {versionDetails.strain_files_url}
-                </a>
-              </dd>
-            </div>
-          )}
-          {versionDetails.timelines_url && (
-            <div className="version-detail-item">
-              <dt>Timelines</dt>
-              <dd>
-                <a 
-                  href={versionDetails.timelines_url} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="version-link"
-                >
-                  {versionDetails.timelines_url}
-                </a>
-              </dd>
-            </div>
-          )}
-        </dl>
+        <div className="version-tabs-container">
+          <nav className="version-tabs-nav">
+            {availableTabs.map((tabName) => (
+              <button
+                key={tabName}
+                className={`version-tab-button ${activeTab === tabName ? 'active' : ''}`}
+                onClick={() => handleTabClick(tabName)}
+              >
+                {tabName === 'parameters' && 'Parameters'}
+                {tabName === 'strain-files' && 'Strain Files'}
+                {tabName === 'timelines' && 'Timelines'}
+              </button>
+            ))}
+          </nav>
+          <div className="version-tabs-content-wrapper">
+            {renderTabContent()}
+          </div>
+        </div>
       </div>
     );
   };
@@ -304,8 +455,6 @@ function DetailPanel({ eventDetails, isLoading }) {
           </div>
         )}
 
-        {versionDetails && renderVersionDetails()}
-
         {eventDetails.parameters && renderParameters(eventDetails.parameters)}
 
         {/* Display other metadata */}
@@ -322,6 +471,8 @@ function DetailPanel({ eventDetails, isLoading }) {
               ))}
           </dl>
         </div>
+
+        {versionDetails && renderVersionDetails()}
       </div>
     </div>
   );
