@@ -2,6 +2,10 @@
 
 This React application is a web interface for exploring the GWOSC data.
 
+## Live demo:
+
+https://martinberoiz.github.io/vibe-gw-explorer/
+
 ## Features
 
 - Explore GWOSC runs and events
